@@ -1,5 +1,6 @@
 import React, { Component } from 'react';
 import { Button } from 'react-bootstrap';
+import VoiceToggle from './voice_toggle';
 
 export default class AISpeaker extends Component {
     constructor(props) {
@@ -10,6 +11,7 @@ export default class AISpeaker extends Component {
     render() {
         return (
             <div className="container ai-speaker">
+                <VoiceToggle ref={voice => this.voice = voice}/>
                 <form className="ai-speak-form" onSubmit={this.handleSubmit}>
                 <label>
                     Text
@@ -23,6 +25,6 @@ export default class AISpeaker extends Component {
 
     handleSubmit(e) {
 		e.preventDefault();
-		Meteor.call('speak', this.speechText.value);
+		Meteor.call('speak', this.speechText.value, this.voice.value);
 	}
 }

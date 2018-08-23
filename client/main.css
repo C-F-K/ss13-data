@@ -15,7 +15,7 @@ body {
 
   font-size: 14px;
   /* oh boy this is a hack :< */
-  overflow: hidden;
+  /* overflow: hidden; */
 }
 
 .container {
@@ -23,11 +23,6 @@ body {
   margin: 0 auto;
   min-height: 100%;
   background-color: #fcfdfe;
-}
-
-.container.app-level {
-  overflow: scroll;
-  overflow-x: hidden;
 }
 
 header {
@@ -124,6 +119,11 @@ h1 {
   display: inline-block;
   width: 60px;
   height: 34px;
+}
+
+.switch-label {
+  position: relative;
+  /* display: inline-block; */
 }
 
 /* Hide default HTML checkbox */
