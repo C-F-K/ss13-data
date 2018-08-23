@@ -315,8 +315,9 @@ const generateCrewMembers = (doNotGenArray) => {
 }
 
 const generateAntags = (mongoCollection) => {
-    let antagsToGenerate = Math.floor(mongoCollection.count() / 8);
-    repeat(antagsToGenerate)(() => {
+    let numAntagsToGenerate = Math.floor(mongoCollection.count() / 8);
+    let antagsToGenerate = [];
+    repeat(numAntagsToGenerate)(() => {
         // hooboy big todo
     });
 }
