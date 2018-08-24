@@ -2,9 +2,8 @@ import React, { Component } from 'react';
 import Griddle, { connect as griddleConnect, plugins, RowDefinition, ColumnDefinition } from 'griddle-react';
 import { Button } from 'react-bootstrap';
 import { Crew } from './collections';
-// import { generateCrewMembers, generateAntags, assignAntags, assignAntagTargets } from './rand_gen';
 import { generateCrewMembers, generateAntags, assignAntags, assignAntagTargets } from './rand_gen';
-import ReactJson from 'react-json-view';
+// import ReactJson from 'react-json-view';
 
 export default class DataGrid extends Component {
     constructor(props) {
@@ -35,12 +34,23 @@ export default class DataGrid extends Component {
                         <ColumnDefinition id="dept" isMetadata />
                         <ColumnDefinition id="traitor" isMetadata />
                         <ColumnDefinition id="changeling" isMetadata />
-                        <ColumnDefinition id="antag" visible />
+                        <ColumnDefinition id="antag.type" visible />
+                        <ColumnDefinition id="antag.objectives" visible />
                     </RowDefinition>
                 </Griddle>
             </div>
         );
     }
+
+    /* 
+      <Griddle data={localData} plugins={[plugins.LocalPlugin]}>
+    <RowDefinition>
+      <ColumnDefinition id="name" />
+      <ColumnDefinition id="location.state" title="State" />
+    </RowDefinition>
+  </Griddle>
+    
+    */
     /* <ColumnDefinition id="users" title=" " width="10%" visible={this.props.userIsAdmin} /> */
     /* <ColumnDefinition id="antag" visible customComponent={enhancedWithRowData(ReactJsonCustom)}/> */
     getCssClassByJobSector(data, index) {

@@ -16,6 +16,10 @@ function weightedRandom(spec) {
         if (r <= sum) return spec[i].type;
     }
 } 
+function randomLetter() {
+    var possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";  
+    return possible.charAt(Math.floor(Math.random() * possible.length));
+}
 const repeat = x => f => {
     if (x > 0) {
         f();
@@ -273,7 +277,7 @@ const depts = [
         crew: [
             {
                 job: "AI",
-                traitor: true,
+                traitor: false,
                 changeling: false
             },
             {
@@ -306,7 +310,7 @@ export const generateCrewMembers = (doNotGenArray) => {
                 if (Math.random() < proc) {
                     repeat(iter)(()=>{
                         let crewMemberBase = clone(crewMember);
-                        crewMemberBase.name = faker.name.findName();
+                        crewMemberBase.name = assignAppropriateName(crewSlot.job);
                         crewMemberBase.job = crewSlot.job;
                         crewMemberBase.dept = dept.name; 
                         crewMemberBase.traitor = crewSlot.traitor;
@@ -319,7 +323,24 @@ export const generateCrewMembers = (doNotGenArray) => {
     });
     return results;
 }
-
+function assignAppropriateName(job) {
+    switch (job) {
+        case "AI":
+            return faker.hacker.noun().toUpperCase().replace(/(.)/g,"$1.");
+        case "Cyborg":
+            var name = faker.hacker.verb() + randomElement(["bot","tron","-o-matic","borg","machine"]);
+            if (Math.random() < 0.3) {
+                name += (" " + randomBetween(1,9) + "000");
+            }
+            var cap = name.charAt(0).toUpperCase() + name.substr(1);
+            return cap;
+        case "Drone":
+            var name = randomLetter() + randomBetween(1,9) + "-" + randomLetter() + randomBetween(1,9);
+            return name;
+        default: 
+            return faker.name.findName();
+    }
+}
 export const generateAntags = (array) => {
     var numAntagsToGenerate = Math.floor(array.length / 8);
     var antagsToGenerate = [];
