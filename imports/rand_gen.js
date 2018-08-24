@@ -9,6 +9,13 @@ function randomBetween(min,max) {
 function randomElement(arr) {
     return arr[randomBetween(0,(arr.length - 1))];
 }
+function weightedRandom(spec) {
+    let i, sum=0, r=Math.random();
+    for (i in spec) {
+        sum += spec[i].proc;
+        if (r <= sum) return spec[i].type;
+    }
+} 
 const repeat = x => f => {
     if (x > 0) {
         f();
@@ -191,7 +198,7 @@ const depts = [
                 traitor: true,
                 changeling: true,
                 max: 2
-            },
+            }
         ]
     },
     {
@@ -285,7 +292,7 @@ const depts = [
     }
 ];
 
-const generateCrewMembers = (doNotGenArray) => {
+export const generateCrewMembers = (doNotGenArray) => {
     let results = [];
     depts.forEach((dept,index,depts) => {
         dept.crew.forEach((crewSlot,idx,crew) => {
@@ -310,36 +317,184 @@ const generateCrewMembers = (doNotGenArray) => {
             }
         });
     });
-
     return results;
 }
 
-const generateAntags = (mongoCollection) => {
-    let numAntagsToGenerate = Math.floor(mongoCollection.count() / 8);
-    let antagsToGenerate = [];
+export const generateAntags = (array) => {
+    var numAntagsToGenerate = Math.floor(array.length / 8);
+    var antagsToGenerate = [];
     repeat(numAntagsToGenerate)(() => {
-        // hooboy big todo
+        let type = weightedRandom(antags);
+        let antagBase = clone(antag);
+        antagBase.type = type;
+        antagsToGenerate.push(antagBase);
     });
+
+    let changelingCount = antagsToGenerate.filter(antag => {
+        return antag.type === "changeling";
+    }).length;
+    let traitorCount = antagsToGenerate.filter(antag => {
+        return antag.type === "traitor";
+    }).length;
+
+    antagsToGenerate.forEach(currentAntag => {
+        var objectives = [];
+        var objCount = randomBetween(2,4);
+        switch (currentAntag.type) {
+            case "ai":
+                let obj = randomElement(missions.ai);
+                let objBase = clone(antagObjective);
+                objBase.type = obj.objective;
+                objectives.push(objBase);
+                break;
+            case "changeling":
+                objectives.push(randomElement(endMissions.both.concat(endMissions.changeling)));
+                repeat(objCount)(() => {
+                    let obj = randomElement(missions.both.concat(missions.changeling).filter(mission => {
+                        return (!mission.hasOwnProperty('minAntags')) || (mission.minAntags <= changelingCount);
+                    }));
+                    let objBase = clone(antagObjective);
+                    objBase.type = obj.objective;
+                    if (obj.hasOwnProperty('target')) { 
+                        objBase.target = obj.target; 
+                    } 
+                    objectives.push(objBase);
+                });
+                break;
+            case "traitor":
+                objectives.push(randomElement(endMissions.both.concat(endMissions.traitor)));
+                repeat(objCount)(() => {
+                    let obj = randomElement(missions.both.concat(missions.traitor).filter(mission => {
+                        return (!mission.hasOwnProperty('minAntags')) || (mission.minAntags <= traitorCount);
+                    }));
+                    let objBase = clone(antagObjective);
+                    objBase.type = obj.objective;
+                    if (obj.hasOwnProperty('target')) { 
+                        objBase.target = obj.target; 
+                    } 
+                    objectives.push(objBase);
+                });
+                break;
+        }
+
+        currentAntag.objectives = objectives;
+    });
+
+    return antagsToGenerate;
+};
+
+function indexOfAI(array) {
+    array.forEach((crew, i) => {
+        if (crew.job == "AI") {
+            return i;
+        }
+    });
+    return -1;
 }
 
-/*
-    tatorling: 
-            randomly determine type? 
-            there should always be at least 2; floor(crew / 8)?
-            first check if malf AI; worth 2 antags (so low crew count won't get additional ones)
-            then divvy up the others randomly
-            then generate objectives (need to know how many per type first)
-                if enough antags for a multi-antag objective, add it to all relevant
-                each antag gets an end objective
-                each antag gets 2-3 additional objectives
-                    per objective, assign targets
-            THEN AND ONLY THEN assign antag fields to crew: 
-                captain + NPC heads can't be traitors
-                if hop is changeling, captain can't be and vice versa
-                existing traitors cannot receive more traitor objectives
-                same with changelings
-                HOWEVER changelings can receive traitor objectives and vice versa
-*/
+export const assignAntags = (crewArray, antagArray) => {
+    var capIsLing = false;
+    var hopIsLing = false;
+
+    var antagAI = null;
+    var crewAI = crewArray.indexOf(crewArray.find(member => {
+        member.job == "AI";
+    }));
+    if (crewAI >= 0) {
+        if (indexOfAI(antagArray) >= 0) {
+            antagAI = antagArray.splice(indexOfAI(antagArray),1);
+            crewArray[crewAI].antag = antagAI;
+        }
+    }
+
+    while (antagArray.length > 0) {
+        var currentAntag = antagArray.pop();
+        var crewMember = randomElement(crewArray);
+
+        if (!crewMember[currentAntag.type]) {
+            antagArray.push(currentAntag);
+            continue;
+        }
+
+        if (crewMember.antag == null || !(RegExp(currentAntag.type).test(crewMember.antag.type))) {
+            if (currentAntag.type.match(/changeling/)) {
+                if (crewMember.job == "Captain") {
+                    if (hopIsLing) {
+                        antagArray.push(currentAntag);
+                        continue;
+                    } else {
+                        capIsLing = true;
+                    }
+                }
+                if (crewMember.job == "HoP") {
+                    if (capIsLing) {
+                        antagArray.push(currentAntag);
+                        continue;
+                    } else {
+                        hopIsLing = true;
+                    }
+                }
+            }
+            setAntag(currentAntag, crewMember);
+        } else {
+            antagArray.push(currentAntag);
+        }
+    }
+
+    return crewArray;
+};
+
+function setAntag(antag, crewMember) {
+    if (crewMember.antag == null) {
+        crewMember.antag = antag;
+    } else {
+        crewMember.antag.type = crewMember.antag.type + " + " + antag.type; 
+        crewMember.antag.objectives = crewMember.antag.objectives.concat(antag.objectives);
+    }
+}
+
+export const assignAntagTargets = (crewArray) => {
+    crewArray.forEach(crewMember => {
+        if (crewMember.antag != null)  {
+            crewMember.antag.objectives.forEach(objective => {
+                if (objective.target != null) {
+                    switch (objective.target) {
+                        case "obj":
+                            objective.target = randomElement(highRisk);
+                            break;
+                        case "crew":
+                            objective.target = getSomeoneElse(crewArray,crewMember.name).name;
+                            break;
+                        case "changeling":
+                            objective.target = getSameAntagType(crewArray,"changeling",crewMember.name).name;
+                            break;
+                        case "traitor":
+                            objective.target = getSameAntagType(crewArray,"traitor",crewMember.name).name;
+                            break;
+                    }
+                }
+            });
+        }
+    });
+
+    return crewArray;
+};
+function getSomeoneElse(crewArray, ownName) {
+    var member = randomElement(crewArray);
+    if (member.name == ownName) {
+        getSomeoneElse(crewArray,ownName);
+    }
+    return member;
+}
+function getSameAntagType(crewArray, ownType, ownName) {
+    var member = getSomeoneElse(crewArray.filter(crew => {
+        return crew.antag != null;
+    }),ownName);
+    if (!(RegExp(ownType).test(member.antag.type))) {
+        getSameAntagType(crewArray, ownType, ownName);
+    }
+    return member;
+}
 
 const crewMember = {
     name: "",
@@ -349,38 +504,49 @@ const crewMember = {
     changeling: false,
     antag: null
 };
+const antags = [
+    {
+        type: "ai",
+        proc: 0.05
+    },
+    {
+        type: "changeling",
+        proc: 0.35
+    },
+    {
+        type: "traitor",
+        proc: 0.6
+    },
+];
 const antag = {
     type: "",
     objectives: []
-}
+};
 const antagObjective = {
-    type: "",
-    target: ""
-}
-
+    type: ""
+};
 const highRisk = [  "Cpt.Laser",    "Hand Teleporter",  "Cpt.Jetpack",      "AI Card",
                     "Adv.Magboots", "Blueprints",       "Secret Docs",      "Plutonium",
                     "Supermatter",  "Plasma Tank",      "Slime Extract",    "Cpt.Medal",
-                    "Hypospray",    "Fukken Disk",      "Ablative Vest",    "Teleport Armor"  ]
+                    "Hypospray",    "Fukken Disk",      "Ablative Vest",    "Teleport Armor"  ];
 const missions = {
     both: [
         {
             objective: "steal",
-            minAntags: 1
+            target: "obj"
         },
         {
             objective: "assassinate",
-            minAntags: 1
+            target: "crew"
         },
         {
             objective: "maroon",
-            minAntags: 1
+            target: "crew"
         }
     ],
     changeling: [
         {
             objective: "extract",
-            minAntags: 1
         },
         {
             objective: "extract most",
@@ -388,39 +554,77 @@ const missions = {
         },
         {
             objective: "absorb",
-            minAntags: 2
+            minAntags: 2,
+            target: "changeling"
         },
         {
             objective: "impersonate dept",
-            minAntags: 3
+            minAntags: 3,
+            isTeam: true
         },
         {
             objective: "impersonate heads",
-            minAntags: 3
+            minAntags: 3,
+            isTeam: true
         }
     ],
     traitor: [
         {
             objective: "protect",
-            minAntags: 1
+            target: "crew"
         },
         {
             objective: "exchange",
-            minAntags: 2
+            minAntags: 2,
+            target: "traitor"
         },
         {
             objective: "doublecross",
-            minAntags: 2
+            minAntags: 2,
+            target: "traitor"
+        }
+    ],
+    ai: [
+        {
+            objective: "assassinate",
+            target: "crew"
+        },
+        {
+            objective: "protect",
+            target: "crew"
+        },
+        {
+            objective: "no organics"
+        },
+        {
+            objective: "no nonhumans"
+        },
+        {
+            objective: "8 cyborgs"
         }
     ]
 };
 const endMissions = {
-    both: ["escape"],
-    changeling: ["escape as"],
-    traitor: ["escape alone","martyrdom"]
-}
-
-export default { generateCrewMembers, generateAntags };
+    both: [
+        { 
+            type: "escape" 
+        }
+    ],
+    changeling: [
+        {
+            type: "escape as", 
+            target: "crew"
+        }
+    ],
+    traitor: [
+        {
+            type:"escape alone"
+        },
+        {
+            type:"martyrdom"
+        }
+    ]
+};
 
 
 /**
@@ -472,8 +676,7 @@ make some shit such that:
     drop cursor.fetch() array into datagrid
     probably background color the rows based on job sector
 
-    generate crew 
-    gamemode: tatorling, rev, cult
+    gamemode: tatorling, rev, cult, nuke
     count crew, generate antags
     revcult: 
             floor(crew/9) revheads

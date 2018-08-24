@@ -1,5 +1,6 @@
 import { Meteor } from 'meteor/meteor';
 import say from 'say';
+import { Crew } from '../imports/collections';
 
 Meteor.startup(() => {
     WebApp.connectHandlers.use('/speak', (req,res,next) => {
